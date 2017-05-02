@@ -1,4 +1,4 @@
-(load "httpio.scm")
+(load "~/Documents/MIT Senior Year/6.905/6.945-project/httpio.scm")
 
 #|
 Initializes our web server.
@@ -92,12 +92,24 @@ Initializes our web server.
 	    '())
 	  (cons x (f (read-char port))))))))
 
+(define (post server path handler)
+  (add-handler server "POST" path handler))
+
+(define (get server path handler)
+  (add-handler server "GET" path handler))
+
+(define (put server path handler)
+  (add-handler server "PUT" path handler))
+
+(define (delete server path handler)
+  (add-handler server "DELETE" path handler))
 
 (define server (create-server))
-(add-handler server "GET" "/hello-world"
+
+(get server "/hello-world"
 	     (lambda (req) '(200 () "Hello World!")))
 
-(add-handler server "POST" "/cats"
+(post server "/cats"
 	     (lambda (req) '(200 () "\o/")))
 
 (listen server 3000)
