@@ -1,0 +1,3 @@
+[submodule "json.scm"]
+	path = json.scm
+	url = https://github.com/joeltg/json.scm.git
