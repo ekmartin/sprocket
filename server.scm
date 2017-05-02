@@ -15,15 +15,35 @@
 	      (dynamic-wind
 		  (lambda () unspecific)
 		  (lambda ()
-		    (display (read-http-request port))
-		    (write-http-response
-		     (make-http-response HTTP/1.1 200
-		      (http-status-description 200)
-		      '()
-		      "Hello World")
-		   port))
+		    (handle-request (read-http-request port) port))
 		  (lambda ()
 		    (close-port port))))))
 	(lambda () (channel-close socket)))))
 
-(start-server 3000)
+(define (handle-request request port)
+  (let* ((url (http-request-uri request))
+	 (path (uri-path url))
+	 ;; TODO: not sure why the first element
+	 ;; of the list is empty here:
+	 (filename (cadr path)))
+    (write-http-response
+     (make-http-response
+      HTTP/1.1 200
+      (http-status-description 200)
+      '()
+      ;; TODO: handle errors and return 500 response:
+      (read-file filename))
+     port)))
+
+;;; reads the string content at the given file path:
+(define (read-file filename)
+  (list->string
+   (let ((port (open-input-file filename)))
+    (let f ((x (read-char p)))
+      (if (eof-object? x)
+	  (begin
+	    (close-input-port p)
+	    '())
+	  (cons x (f (read-char p))))))))
+
+(start-server 3003)
