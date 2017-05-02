@@ -2,23 +2,35 @@
 
 (define HTTP/1.1 (cons 1 1))
 
-(define (start-server tcp-port)
-  (let ((socket (open-tcp-server-socket
-		 tcp-port
-		 (host-address-loopback))))
-    (display "Listening to port ") (display tcp-port) (newline)
-    (dynamic-wind
-	(lambda () unspecific)
-	(lambda ()
-	  (do () ((channel-closed? socket))
-	    (let ((port (tcp-server-connection-accept socket #t #f)))
-	      (dynamic-wind
-		  (lambda () unspecific)
-		  (lambda ()
-		    (handle-request (read-http-request port) port))
-		  (lambda ()
-		    (close-port port))))))
-	(lambda () (channel-close socket)))))
+(define (create-server)
+  (define (listen tcp-port)
+    (let ((socket (open-tcp-server-socket
+		   tcp-port
+		   (host-address-loopback))))
+      (display "Listening to port ") (display tcp-port) (newline)
+      (dynamic-wind
+	  (lambda () unspecific)
+	  (lambda ()
+	    (do () ((channel-closed? socket))
+	      (let ((port (tcp-server-connection-accept socket #t #f)))
+		(dynamic-wind
+		    (lambda () unspecific)
+		    (lambda ()
+		      ;; TODO: handle errors and return 500 response:
+		      (handle-request (read-http-request port) port))
+		    (lambda ()
+		      (close-port port))))))
+	  (lambda () (channel-close socket)))))
+
+  (define (dispatch op)
+    (case op
+      ((listen) listen)
+      (else (error "Unknown method: " op))))
+
+  dispatch)
+
+(define (listen server port)
+  ((server 'listen) port))
 
 (define (handle-request request port)
   (let* ((url (http-request-uri request))
@@ -31,7 +43,7 @@
       HTTP/1.1 200
       (http-status-description 200)
       '()
-      ;; TODO: handle errors and return 500 response:
+      ;; TODO: handle errors and return 404 response:
       (read-file filename))
      port)))
 
@@ -46,4 +58,6 @@
 	    '())
 	  (cons x (f (read-char p))))))))
 
-(start-server 3003)
+
+(define server (create-server))
+(listen server 3000)
