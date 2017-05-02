@@ -1,4 +1,4 @@
-(load "~/Documents/MIT Senior Year/6.905/6.945-project/httpio.scm")
+(load "httpio.scm")
 
 #|
 Initializes our web server.
