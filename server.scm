@@ -1,4 +1,5 @@
 (load "httpio.scm")
+(load "middleware.scm")
 
 #|
 Initializes our web server.
@@ -7,7 +8,17 @@ Initializes our web server.
   ;;; Local variables
 
   ;;; (method path) -> handler
-  (define handlers (make-equal-hash-table))
+  (define 404-handler
+    ;; initialize handlers with a default 404 handler:
+    (make-middleware
+     '()
+     '()
+     (lambda (req)
+       '(404 () "Page Not Found"))))
+
+  (define handlers
+    ;; Initialize handler
+    (list 404-handler))
 
   ;;; Dispatchable procedures
   (define (listen tcp-port)
@@ -29,41 +40,60 @@ Initializes our web server.
 	  (lambda () (channel-close socket)))))
 
   (define (add-handler method path handler)
-    (let ((url (->uri path)))
-      (hash-table/put! handlers
-		       (cons method url)
-		       handler)))
+    (let ((entry (make-middleware
+		  method (->uri path) handler)))
+      (set! handlers (cons entry handlers))))
 
   ;;; Private helper procedures
-  (define (404-handler req)
-    '(404 () "Page Not Found"))
-
   (define (wrap-handler handler)
     (lambda (req)
-      ;; spread out the result with values,
-      ;; so we can use (receive) on the result:
-      (apply values (handler req))))
+      (let ((result (handler req)))
+	(if (list? result)
+	    result
+	    '()))))
 
-  (define (get-handler method path)
-    (wrap-handler
-     (hash-table/get
-      handlers
-      (cons method path)
-      404-handler)))
+  (define (create-response result)
+    (receive
+     (status headers body)
+     (apply values result)
+     (make-http-response HTTP/1.1 status
+			 (http-status-description status)
+			 headers body)))
+
+  ;;; Check if the given middleware matches the request
+  (define (match-middleware request middleware)
+    (let ((method (get-method middleware))
+	  (path (get-path middleware))
+	  (handler (get-handler middleware))
+	  (request-path (http-request-uri request))
+	  (request-method (http-request-method request)))
+      (let ((valid-method
+	     (or (null? method)
+		 (equal? method request-method)))
+	    (valid-path
+	     (or (null? path)
+		 (equal? path request-path))))
+	(and valid-method valid-path))))
 
   (define (handle-request request port)
-    (let* ((path (http-request-uri request))
-	   (method (http-request-method request))
-	   (handler (get-handler method path)))
-      (receive
-       (status headers body)
-       (handler request)
-       (begin
-	 (write-http-response
-	  (make-http-response HTTP/1.1 status
-			      (http-status-description status)
-			      headers body)
-	  port)))))
+    (let loop ((rest handlers))
+      (cond ((null? rest) 'done)
+	    ((match-middleware request (car rest))
+	     (begin
+	       (let* ((middleware (car rest))
+		      (method (get-method middleware))
+		      (path (get-path middleware))
+		      (handler (get-handler middleware)))
+		 (let ((result (handler request)))
+		   (if (not (null? result))
+		       (write-http-response
+			(create-response result)
+			port))))
+	       ;; go through the rest of the middleware, even if we've
+	       ;; sent out a response:
+	       (loop (cdr rest))))
+	    ;; this handler didn't match, so try the next one:
+	    (else (loop (cdr rest))))))
 
   (define (dispatch op)
     (case op
