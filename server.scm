@@ -6,19 +6,7 @@ Initializes our web server.
 |#
 (define (create-server)
   ;;; Local variables
-
-  ;;; (method path) -> handler
-  (define 404-handler
-    ;; initialize handlers with a default 404 handler:
-    (make-middleware
-     '()
-     '()
-     (lambda (req)
-       '(404 () "Page Not Found"))))
-
-  (define handlers
-    ;; Initialize handler
-    (list 404-handler))
+  (define handlers '())
 
   ;;; Dispatchable procedures
   (define (listen tcp-port)
@@ -39,18 +27,16 @@ Initializes our web server.
 		      (close-port port))))))
 	  (lambda () (channel-close socket)))))
 
-  (define (add-handler method path handler)
-    (let ((entry (make-middleware
-		  method (->uri path) handler)))
+  (define (add-handler handler #!optional path method)
+    (let* ((url (if (default-object? path)
+		    path
+		    (->uri path)))
+	   (entry (make-middleware method url handler)))
       (set! handlers (cons entry handlers))))
 
   ;;; Private helper procedures
-  (define (wrap-handler handler)
-    (lambda (req)
-      (let ((result (handler req)))
-	(if (list? result)
-	    result
-	    '()))))
+  (define (404-handler req)
+    '(404 () "Page Not Found"))
 
   (define (create-response result)
     (receive
@@ -68,10 +54,10 @@ Initializes our web server.
 	  (request-path (http-request-uri request))
 	  (request-method (http-request-method request)))
       (let ((valid-method
-	     (or (null? method)
+	     (or (default-object? method)
 		 (equal? method request-method)))
 	    (valid-path
-	     (or (null? path)
+	     (or (default-object? path)
 		 (equal? path request-path))))
 	(and valid-method valid-path))))
 
@@ -85,16 +71,20 @@ Initializes our web server.
 		      (path (get-path middleware))
 		      (handler (get-handler middleware)))
 		 (let ((result (handler request)))
-		   (if (not (null? result))
+		   (if (list? result)
 		       (write-http-response
 			(create-response result)
-			port))))
+			port)))
 	       ;; go through the rest of the middleware, even if we've
 	       ;; sent out a response:
-	       (loop (cdr rest))))
+	       (loop (cdr rest)))))
 	    ;; this handler didn't match, so try the next one:
 	    (else (loop (cdr rest))))))
 
+  ;;; Initialize handlers with a default 404 handler:
+  (add-handler 404-handler)
+
+  ;;; Dispatch on public procedures:
   (define (dispatch op)
     (case op
       ((listen) listen)
@@ -108,8 +98,8 @@ Initializes our web server.
 (define (listen server port)
   ((server 'listen) port))
 
-(define (add-handler server method path handler)
-  ((server 'add-handler) method path handler))
+(define (add-handler server handler #!optional path method)
+  ((server 'add-handler) handler path method))
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
@@ -122,24 +112,33 @@ Initializes our web server.
 	    '())
 	  (cons x (f (read-char port))))))))
 
-(define (post server path handler)
-  (add-handler server "POST" path handler))
+(define (post server handler #!optional path)
+  (add-handler server handler path "POST"))
 
-(define (get server path handler)
-  (add-handler server "GET" path handler))
+(define (get server handler #!optional path)
+  (add-handler server handler path "GET"))
 
-(define (put server path handler)
-  (add-handler server "PUT" path handler))
+(define (put server handler #!optional path)
+  (add-handler server handler path "PUT"))
 
-(define (delete server path handler)
-  (add-handler server "DELETE" path handler))
+(define (delete server handler #!optional path)
+  (add-handler server handler path "DELETE"))
 
+;;; Example:
 (define server (create-server))
 
-(get server "/hello-world"
-	     (lambda (req) '(200 () "Hello World!")))
+;;; Middleware, called for each request:
+(add-handler server
+	     (lambda (req)
+	       (display "-> request: ")
+	       (display req)))
 
-(post server "/cats"
-	     (lambda (req) '(200 () "\o/")))
+(get server
+     (lambda (req) '(200 () "Hello World!"))
+     "/hello-world")
+
+(post server
+      (lambda (req) '(200 () "\o/"))
+      "/cats")
 
 (listen server 3000)
