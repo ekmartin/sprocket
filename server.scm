@@ -238,14 +238,15 @@ Initializes our web server.
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
-  (list->string
-   (let ((port (open-input-file filename)))
-     (let f ((x (read-char port)))
-       (if (eof-object? x)
-	   (begin
-	     (close-input-port port)
-	     '())
-	   (cons x (f (read-char port))))))))
+  (let ((port (open-input-file filename)))
+    (let loop ((total '()))
+      (let ((current (read-char port)))
+	(if (eof-object? current)
+	    (begin
+	      (close-input-port port)
+	      (list->string (reverse total)))
+	    (loop (cons current total)))))))
+
 
 ;;; Example:
 (define server (create-server))
