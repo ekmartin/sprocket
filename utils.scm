@@ -17,3 +17,27 @@
 ;; -> #t
 ;; (subset? (list 5 2 3 4) (list 1 2))
 ;; -> #f
+;; (subset? '("" "hello-world") '("" "hello-world" "a"))
+;; -> #f
+
+;;; creates a string by joining the elements list by separator
+(define (string-join elements separator)
+  (define (join rest)
+    (let ((first (car rest))
+	  (others (cdr rest)))
+      (if (null? others)
+	  (list first)
+	  (cons first
+		(cons separator
+		 (join others))))))
+
+  (if (null? elements)
+      ""
+      (apply string-append (join elements))))
+
+;; (string-join (list "a" "b" "c") "/")
+;; -> "a/b/c"
+;; (string-join '() "/")
+;; -> ""
+;; (string-join (list "a") "/")
+;; -> "a"

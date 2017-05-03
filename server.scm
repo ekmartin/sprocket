@@ -1,4 +1,4 @@
-(load "httpio.scm")
+
 (load "middleware.scm")
 (load "utils.scm")
 
@@ -135,9 +135,11 @@ Initializes our web server.
 		     (write-http-response
 		      (create-response result)
 		      port)))
-		 ;; go through the rest of the middleware, even if we've
-		 ;; sent out a response:
-		 (loop (cdr rest))))
+	       ;; go through the rest of the middleware, even if we've
+	       ;; sent out a response:
+	       ;; TODO: don't allow sending out more responses if
+	       ;; we've already sent out one.
+	       (loop (cdr rest))))
 	    ;; this handler didn't match, so try the next one:
 	    (else (loop (cdr rest))))))
 
@@ -152,7 +154,7 @@ Initializes our web server.
   dispatch)
 
 (define HTTP/1.1 (cons 1 1))
-(define INTERNAL-DEBUG-ERRORS #t)
+(define INTERNAL-DEBUG-ERRORS #f)
 
 (define (listen server port)
   ((server 'listen) port))
@@ -162,6 +164,25 @@ Initializes our web server.
 
 (define (add-error-handler server handler #!optional path method)
   ((server 'add-error-handler) handler path method))
+
+(define (path->file path)
+  (string-append "/" (string-join path "/")))
+
+;;; creates a middleware that serves static files
+;;; at the folder at `path`
+(define (serve-static path)
+  (lambda (req)
+    (let* ((static-path (uri-path (string->uri path)))
+	   (full-request-path (uri-path (http-request-uri req)))
+	   ;; if we get a request for /static/file.txt and path is
+	   ;; /static, we only care about file.txt - so find that:
+	   (request-path (sublist
+			  full-request-path
+			  (+ (length static-path) 1)
+			  (length full-request-path))))
+      (let* ((filename (path->file request-path))
+	     (file-path (string-append path filename)))
+	`(200 () ,(read-file file-path))))))
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
@@ -222,9 +243,12 @@ Initializes our web server.
 	'(200 () "this shouldn't be reached!"))
       "/trigger-error")
 
-;;; Simple handler example:"
+;;; Simple handler example:
 (get server
      (lambda (req) "no more lists!")
      "/simple")
+
+;;; Static example:
+(get server (serve-static "public") "/static")
 
 (listen server 3000)
