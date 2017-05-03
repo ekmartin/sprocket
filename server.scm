@@ -130,22 +130,24 @@ Initializes our web server.
       (write-http-response response port)))
 
   (define (handle-request handler-list request port #!optional err)
-    (let loop ((rest handler-list))
+    (let loop ((rest handler-list) (should-respond #t))
       (cond ((null? rest) 'done)
 	    ((match-middleware? request (car rest))
-	     (begin
-	       (let* ((middleware (car rest))
-		      (handler (get-handler middleware))
-		      (result (evaluate-handler handler request err)))
-		 (if (list? result)
-		     (write-response result port)))
-	       ;; go through the rest of the middleware, even if we've
-	       ;; sent out a response:
-	       ;; TODO: don't allow sending out more responses if
-	       ;; we've already sent out one.
-	       (loop (cdr rest))))
+	     (let* ((middleware (car rest))
+		    (handler (get-handler middleware)))
+	       (log "-> evaluating handler: ~A" handler)
+	       (let ((result (evaluate-handler handler request err)))
+		 ;; only write a response if we haven't
+		 ;; done so before:
+		 (if (and should-respond (list? result))
+		     (begin
+		       (write-response result port)
+		       (loop (cdr rest) #f))
+		     ;; go through the rest of the middleware, even if we've
+		     ;; sent out a response:
+		     (loop (cdr rest) should-respond)))))
 	    ;; this handler didn't match, so try the next one:
-	    (else (loop (cdr rest))))))
+	    (else (loop (cdr rest) should-respond)))))
 
   ;;; Dispatch on public procedures:
   (define (dispatch op)
