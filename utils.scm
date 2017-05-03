@@ -1,3 +1,5 @@
+(load-option 'format)
+
 ;;; appends new to the end of existing
 (define (append-element existing new)
   (append existing (list new)))
@@ -43,3 +45,16 @@
 ;; -> ""
 ;; (string-join (list "a") "/")
 ;; -> "a"
+
+;;; prints the given string to stdout, see
+;;; https://www.gnu.org/software/mit-scheme/documentation/mit-scheme-ref/Format.html for format arguments.
+;;; adds a newline to the string, unlike regular printf.
+(define (printf str . elements)
+  (apply format #t (string-append str "~%") elements))
+
+;; (printf "int: ~A - yep" 2)
+;; int: 2 - yep
+;; (printf "hello world")
+;; hello world
+;; (printf "list: ~A" (list 1 2 3))
+;; list: (1 2 3)
