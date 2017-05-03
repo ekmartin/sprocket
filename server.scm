@@ -1,5 +1,6 @@
 (load "httpio.scm")
 (load "middleware.scm")
+(load "utils.scm")
 
 #|
 Initializes our web server.
@@ -39,24 +40,31 @@ Initializes our web server.
   ;;; Private helper procedures
   (define (serve-request port)
     (let ((request (read-http-request port)))
-      (call-with-current-continuation
-       (lambda (cont)
-	 (bind-condition-handler
-	  (list condition-type:error)
-	  ;; if the request processing errored, run it again,
-	  ;; but this time with the error handlers:
-	  (lambda (err)
-	    (handle-request
-	     (append-element error-handlers
-			     (create-entry 500-handler))
-	     request port err)
-	    (cont '()))
-	  ;; try processing it normally first though:
-	  (lambda ()
-	    (handle-request
-	     (append-element handlers
-			     (create-entry 404-handler))
-	     request port)))))))
+      (define (catch-error err)
+	(handle-request
+	 (append-element error-handlers
+			 (create-entry 500-handler))
+	 request port err))
+
+      (define (try-request)
+	(handle-request
+	 (append-element handlers (create-entry 404-handler))
+	 request port))
+
+      (if INTERNAL-DEBUG-ERRORS
+	  ;; for debugging we don't want the error to be handled:
+	  (try-request)
+	  (call-with-current-continuation
+	   (lambda (cont)
+	     (bind-condition-handler
+	      (list condition-type:error)
+	      ;; if the request processing errored, run it again,
+	      ;; but this time with the error handlers:
+	      (lambda (err)
+		(catch-error err)
+		(cont '()))
+	      ;; try processing it normally first though:
+	      try-request))))))
 
   (define (create-entry handler #!optional path method)
     (let ((url (if (default-object? path)
@@ -81,19 +89,25 @@ Initializes our web server.
 			 (http-status-description status)
 			 headers body)))
 
+  (define (match-path? request-url handler-url)
+    (let ((request-path (uri-path request-url))
+	  (handler-path (uri-path handler-url)))
+      ;; check if handler-path is a subset of request-path:
+      (subset? request-path handler-path)))
+
   ;;; Check if the given middleware matches the request
-  (define (match-middleware request middleware)
+  (define (match-middleware? request middleware)
     (let ((method (get-method middleware))
-	  (path (get-path middleware))
+	  (url (get-url middleware))
 	  (handler (get-handler middleware))
-	  (request-path (http-request-uri request))
+	  (request-url (http-request-uri request))
 	  (request-method (http-request-method request)))
       (let ((valid-method
 	     (or (default-object? method)
 		 (equal? method request-method)))
 	    (valid-path
-	     (or (default-object? path)
-		 (equal? path request-path))))
+	     (or (default-object? url)
+		 (match-path? request-url url))))
 	(and valid-method valid-path))))
 
   ;;; Wraps the results from simple response handlers (i.e. ones that
@@ -112,20 +126,20 @@ Initializes our web server.
   (define (handle-request handler-list request port #!optional err)
     (let loop ((rest handler-list))
       (cond ((null? rest) 'done)
-	    ((match-middleware request (car rest))
+	    ((match-middleware? request (car rest))
 	     (begin
 	       (let* ((middleware (car rest))
-		      (method (get-method middleware))
-		      (path (get-path middleware))
-		      (handler (get-handler middleware)))
-		 (let ((result (evaluate-handler handler request err)))
-		   (if (list? result)
-		       (write-http-response
-			(create-response result)
-			port)))
-		 ;; go through the rest of the middleware, even if we've
-		 ;; sent out a response:
-		 (loop (cdr rest)))))
+		      (handler (get-handler middleware))
+		      (result (evaluate-handler handler request err)))
+		 (if (list? result)
+		     (write-http-response
+		      (create-response result)
+		      port)))
+	       ;; go through the rest of the middleware, even if we've
+	       ;; sent out a response:
+	       ;; TODO: don't allow sending out more responses if
+	       ;; we've already sent out one.
+	       (loop (cdr rest))))
 	    ;; this handler didn't match, so try the next one:
 	    (else (loop (cdr rest))))))
 
@@ -140,9 +154,7 @@ Initializes our web server.
   dispatch)
 
 (define HTTP/1.1 (cons 1 1))
-
-(define (append-element existing new)
-  (append existing (list new)))
+(define INTERNAL-DEBUG-ERRORS #f)
 
 (define (listen server port)
   ((server 'listen) port))
@@ -152,6 +164,38 @@ Initializes our web server.
 
 (define (add-error-handler server handler #!optional path method)
   ((server 'add-error-handler) handler path method))
+
+(define (path->file path)
+  (string-append "/" (string-join path "/")))
+
+;;; creates a middleware that serves static files
+;;; at the folder at `path`
+(define (serve-static path)
+  (lambda (req)
+    (let* ((static-path (uri-path (string->uri path)))
+	   (full-request-path (uri-path (http-request-uri req)))
+	   ;; if we get a request for /static/file.txt and path is
+	   ;; /static, we only care about file.txt - so find that:
+	   (request-path (sublist
+			  full-request-path
+			  (+ (length static-path) 1)
+			  (length full-request-path))))
+      (let* ((filename (path->file request-path))
+	     (file-path (string-append path filename))
+	     (content
+	      (call-with-current-continuation
+	       (lambda (cont)
+		 (bind-condition-handler
+		  (list condition-type:file-error)
+		  ;; we don't want to blow up the server
+		  ;; for not found files etc., so pass it on to the
+		  ;; next middleware.
+		  ;; TODO: add logging here
+		  (lambda (err) (cont '()))
+		  (lambda ()
+		    (read-file file-path)))))))
+	(if (string? content)
+	    `(200 () ,content))))))
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
@@ -212,9 +256,12 @@ Initializes our web server.
 	'(200 () "this shouldn't be reached!"))
       "/trigger-error")
 
-;;; Simple handler example:"
+;;; Simple handler example:
 (get server
      (lambda (req) "no more lists!")
      "/simple")
+
+;;; Static example:
+(get server (serve-static "public") "/static")
 
 (listen server 3000)
