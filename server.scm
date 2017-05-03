@@ -156,6 +156,8 @@ Initializes our web server.
 (define HTTP/1.1 (cons 1 1))
 (define INTERNAL-DEBUG-ERRORS #f)
 
+;;; Public API
+
 (define (listen server port)
   ((server 'listen) port))
 
@@ -165,8 +167,17 @@ Initializes our web server.
 (define (add-error-handler server handler #!optional path method)
   ((server 'add-error-handler) handler path method))
 
-(define (path->file path)
-  (string-append "/" (string-join path "/")))
+(define (post server handler #!optional path)
+  (add-handler server handler path "POST"))
+
+(define (get server handler #!optional path)
+  (add-handler server handler path "GET"))
+
+(define (put server handler #!optional path)
+  (add-handler server handler path "PUT"))
+
+(define (delete server handler #!optional path)
+  (add-handler server handler path "DELETE"))
 
 ;;; creates a middleware that serves static files
 ;;; at the folder at `path`
@@ -197,6 +208,11 @@ Initializes our web server.
 	(if (string? content)
 	    `(200 () ,content))))))
 
+;;; Helper procedures
+
+(define (path->file path)
+  (string-append "/" (string-join path "/")))
+
 ;;; reads the string content at the given file path:
 (define (read-file filename)
   (list->string
@@ -207,18 +223,6 @@ Initializes our web server.
 	     (close-input-port port)
 	     '())
 	   (cons x (f (read-char port))))))))
-
-(define (post server handler #!optional path)
-  (add-handler server handler path "POST"))
-
-(define (get server handler #!optional path)
-  (add-handler server handler path "GET"))
-
-(define (put server handler #!optional path)
-  (add-handler server handler path "PUT"))
-
-(define (delete server handler #!optional path)
-  (add-handler server handler path "DELETE"))
 
 ;;; Example:
 (define server (create-server))

@@ -8,11 +8,13 @@
 ;;; returns #t if the list short is a subset of long:
 (define (subset? long short)
   (and
-   (> (length long) (length short))
+   (>= (length long) (length short))
    (equal?
     short
     (sublist long 0 (length short)))))
 
+;; (subset? (list 1 2) (list 1 2))
+;; -> #t
 ;; (subset? (list 1 2 3 4) (list 1 2))
 ;; -> #t
 ;; (subset? (list 5 2 3 4) (list 1 2))
