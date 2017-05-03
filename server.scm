@@ -1,4 +1,4 @@
-
+(load "httpio.scm")
 (load "middleware.scm")
 (load "utils.scm")
 
@@ -181,8 +181,21 @@ Initializes our web server.
 			  (+ (length static-path) 1)
 			  (length full-request-path))))
       (let* ((filename (path->file request-path))
-	     (file-path (string-append path filename)))
-	`(200 () ,(read-file file-path))))))
+	     (file-path (string-append path filename))
+	     (content
+	      (call-with-current-continuation
+	       (lambda (cont)
+		 (bind-condition-handler
+		  (list condition-type:file-error)
+		  ;; we don't want to blow up the server
+		  ;; for not found files etc., so pass it on to the
+		  ;; next middleware.
+		  ;; TODO: add logging here
+		  (lambda (err) (cont '()))
+		  (lambda ()
+		    (read-file file-path)))))))
+	(if (string? content)
+	    `(200 () ,content))))))
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
