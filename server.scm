@@ -41,6 +41,7 @@ Initializes our web server.
   (define (serve-request port)
     (let ((request (read-http-request port)))
       (define (catch-error err)
+	(log "-> error in request ~A: ~A" request err)
 	(handle-request
 	 (append-element error-handlers
 			 (create-entry 500-handler))
@@ -123,6 +124,11 @@ Initializes our web server.
 	 (handler request)
 	 (handler request err))))
 
+  (define (write-response result port)
+    (let ((response (create-response result)))
+      (log "-> writing response: ~A" response)
+      (write-http-response response port)))
+
   (define (handle-request handler-list request port #!optional err)
     (let loop ((rest handler-list))
       (cond ((null? rest) 'done)
@@ -132,9 +138,7 @@ Initializes our web server.
 		      (handler (get-handler middleware))
 		      (result (evaluate-handler handler request err)))
 		 (if (list? result)
-		     (write-http-response
-		      (create-response result)
-		      port)))
+		     (write-response result port)))
 	       ;; go through the rest of the middleware, even if we've
 	       ;; sent out a response:
 	       ;; TODO: don't allow sending out more responses if
@@ -154,7 +158,9 @@ Initializes our web server.
   dispatch)
 
 (define HTTP/1.1 (cons 1 1))
+
 (define INTERNAL-DEBUG-ERRORS #f)
+(define ENABLE-LOGGING #t)
 
 ;;; Public API
 
@@ -201,14 +207,20 @@ Initializes our web server.
 		  ;; we don't want to blow up the server
 		  ;; for not found files etc., so pass it on to the
 		  ;; next middleware.
-		  ;; TODO: add logging here
-		  (lambda (err) (cont '()))
+		  (lambda (err)
+		    (log "-> error serving file ~A: ~A" file-path err)
+		    (cont '()))
 		  (lambda ()
 		    (read-file file-path)))))))
 	(if (string? content)
 	    `(200 () ,content))))))
 
 ;;; Helper procedures
+
+(define (log str . elements)
+  ;; TODO: config option instead, see #9
+  (if ENABLE-LOGGING
+      (apply printf str elements)))
 
 (define (path->file path)
   (string-append "/" (string-join path "/")))
