@@ -6,9 +6,20 @@ Initializes our web server.
 |#
 (define (create-server)
   ;;; Local variables
+  (define error-handlers '())
   (define handlers '())
 
   ;;; Dispatchable procedures
+  (define (add-handler handler #!optional path method)
+    (let ((entry (create-entry handler path method)))
+      (set! handlers
+	    (append-element handlers entry))))
+
+  (define (add-error-handler handler #!optional path method)
+    (let ((entry (create-entry handler path method)))
+      (set! error-handlers
+	    (append-element error-handlers entry))))
+
   (define (listen tcp-port)
     (let ((socket (open-tcp-server-socket
 		   tcp-port
@@ -21,22 +32,46 @@ Initializes our web server.
 	      (let ((port (tcp-server-connection-accept socket #t #f)))
 		(dynamic-wind
 		    (lambda () unspecific)
-		    (lambda ()
-		      (handle-request (read-http-request port) port))
-		    (lambda ()
-		      (close-port port))))))
+		    (lambda () (serve-request port))
+		    (lambda () (close-port port))))))
 	  (lambda () (channel-close socket)))))
 
-  (define (add-handler handler #!optional path method)
-    (let* ((url (if (default-object? path)
-		    path
-		    (->uri path)))
-	   (entry (make-middleware method url handler)))
-      (set! handlers (cons entry handlers))))
-
   ;;; Private helper procedures
+  (define (serve-request port)
+    (let ((request (read-http-request port)))
+      (call-with-current-continuation
+       (lambda (cont)
+	 (bind-condition-handler
+	  (list condition-type:error)
+	  ;; if the request processing errored, run it again,
+	  ;; but this time with the error handlers:
+	  (lambda (err)
+	    (handle-request
+	     (append-element error-handlers
+			     (create-entry 500-handler))
+	     request port err)
+	    (cont '()))
+	  ;; try processing it normally first though:
+	  (lambda ()
+	    (handle-request
+	     (append-element handlers
+			     (create-entry 404-handler))
+	     request port)))))))
+
+  (define (create-entry handler #!optional path method)
+    (let ((url (if (default-object? path)
+		   path
+		   (->uri path))))
+      (make-middleware method url handler)))
+
   (define (404-handler req)
     '(404 () "Page Not Found"))
+
+  (define (500-handler req err)
+    `(500 () ,(string-append
+	       "Something went wrong: "
+	       ;; TODO: should probably not leak this in production:
+	       (condition/report-string err))))
 
   (define (create-response result)
     (receive
@@ -61,8 +96,13 @@ Initializes our web server.
 		 (equal? path request-path))))
 	(and valid-method valid-path))))
 
-  (define (handle-request request port)
-    (let loop ((rest handlers))
+  (define (evaluate-handler handler request #!optional err)
+    (if (default-object? err)
+	(handler request)
+	(handler request err)))
+
+  (define (handle-request handler-list request port #!optional err)
+    (let loop ((rest handler-list))
       (cond ((null? rest) 'done)
 	    ((match-middleware request (car rest))
 	     (begin
@@ -70,30 +110,31 @@ Initializes our web server.
 		      (method (get-method middleware))
 		      (path (get-path middleware))
 		      (handler (get-handler middleware)))
-		 (let ((result (handler request)))
+		 (let ((result (evaluate-handler handler request err)))
 		   (if (list? result)
 		       (write-http-response
 			(create-response result)
 			port)))
-	       ;; go through the rest of the middleware, even if we've
-	       ;; sent out a response:
-	       (loop (cdr rest)))))
+		 ;; go through the rest of the middleware, even if we've
+		 ;; sent out a response:
+		 (loop (cdr rest)))))
 	    ;; this handler didn't match, so try the next one:
 	    (else (loop (cdr rest))))))
-
-  ;;; Initialize handlers with a default 404 handler:
-  (add-handler 404-handler)
 
   ;;; Dispatch on public procedures:
   (define (dispatch op)
     (case op
       ((listen) listen)
       ((add-handler) add-handler)
+      ((add-error-handler) add-error-handler)
       (else (error "Unknown method: " op))))
 
   dispatch)
 
 (define HTTP/1.1 (cons 1 1))
+
+(define (append-element existing new)
+  (append existing (list new)))
 
 (define (listen server port)
   ((server 'listen) port))
@@ -101,16 +142,19 @@ Initializes our web server.
 (define (add-handler server handler #!optional path method)
   ((server 'add-handler) handler path method))
 
+(define (add-error-handler server handler #!optional path method)
+  ((server 'add-error-handler) handler path method))
+
 ;;; reads the string content at the given file path:
 (define (read-file filename)
   (list->string
    (let ((port (open-input-file filename)))
-    (let f ((x (read-char port)))
-      (if (eof-object? x)
-	  (begin
-	    (close-input-port port)
-	    '())
-	  (cons x (f (read-char port))))))))
+     (let f ((x (read-char port)))
+       (if (eof-object? x)
+	   (begin
+	     (close-input-port port)
+	     '())
+	   (cons x (f (read-char port))))))))
 
 (define (post server handler #!optional path)
   (add-handler server handler path "POST"))
@@ -128,10 +172,12 @@ Initializes our web server.
 (define server (create-server))
 
 ;;; Middleware, called for each request:
-(add-handler server
-	     (lambda (req)
-	       (display "-> request: ")
-	       (display req)))
+(add-handler
+ server
+ (lambda (req)
+   (display "-> request: ")
+   (display req)
+   (newline)))
 
 (get server
      (lambda (req) '(200 () "Hello World!"))
@@ -140,5 +186,22 @@ Initializes our web server.
 (post server
       (lambda (req) '(200 () "\o/"))
       "/cats")
+
+;;; Error middleware example:
+(add-error-handler
+ server
+ (lambda (req err)
+   (display "-> error: ")
+   (display err)
+   (display " - in request: ")
+   (display req)
+   (newline)))
+
+(post server
+      (lambda (req)
+	;; trigger an error:
+	(unbound-procedure)
+	'(200 () "this shouldn't be reached!"))
+      "/trigger-error")
 
 (listen server 3000)
