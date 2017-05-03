@@ -96,10 +96,18 @@ Initializes our web server.
 		 (equal? path request-path))))
 	(and valid-method valid-path))))
 
+  ;;; Wraps the results from simple response handlers (i.e. ones that
+  ;;; return strings) in a (200 '() body) list
+  (define (wrap-result result)
+    (if (string? result)
+	`(200 () ,result)
+	result))
+
   (define (evaluate-handler handler request #!optional err)
-    (if (default-object? err)
-	(handler request)
-	(handler request err)))
+    (wrap-result
+     (if (default-object? err)
+	 (handler request)
+	 (handler request err))))
 
   (define (handle-request handler-list request port #!optional err)
     (let loop ((rest handler-list))
@@ -203,5 +211,10 @@ Initializes our web server.
 	(unbound-procedure)
 	'(200 () "this shouldn't be reached!"))
       "/trigger-error")
+
+;;; Simple handler example:"
+(get server
+     (lambda (req) "no more lists!")
+     "/simple")
 
 (listen server 3000)
