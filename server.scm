@@ -187,6 +187,15 @@ Initializes our web server.
 (define (delete server handler #!optional path)
   (add-handler server handler path "DELETE"))
 
+;;; create a redirect response, only supports
+;;; absolute paths at the moment.
+(define (redirect path (status 302))
+  (let ((location (make-http-header 'location path)))
+    (list
+     redirect-status
+     (list location)
+     (string-append "Redirecting to: " path))))
+
 ;;; creates a middleware that serves static files
 ;;; at the folder at `path`
 (define (serve-static path)
@@ -281,5 +290,14 @@ Initializes our web server.
 
 ;;; Static example:
 (get server (serve-static "public") "/static")
+
+;;; Redirect example:
+(get server
+     (lambda (req) (redirect "http://localhost:3000/hello-world"))
+     "/redirect")
+
+(get server
+     (lambda (req) (redirect "http://localhost:3000/simple" 301))
+     "/permanent-redirect")
 
 (listen server 3000)
