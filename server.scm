@@ -286,13 +286,15 @@ Initializes our web server.
       "/trigger-error")
 
 ;;; JSON parser example:
-(add-handler server
-   json-parser
-   (lambda (req)
-     (display "-> request: ")
-     (display req)
-     (newline)))
-
+(add-handler
+ server
+ (lambda (req)
+   (let ((body (json-parse (req)))
+	 ;;; gets procedure for updating req body
+	 (modifier (record-modifier "HTTP request" body)))
+     ;;; update http request body
+     (modifier req body))))
+	
 ;;; Simple handler example:
 (get server
      (lambda (req) "no more lists!")
