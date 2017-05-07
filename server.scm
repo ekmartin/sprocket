@@ -68,15 +68,12 @@ Initializes our web server.
 	      try-request))))))
 
   (define (create-entry handler #!optional path method)
-    (let ((url (if (default-object? path)
-		   path
-		   (->uri path))))
-      (make-middleware method url handler)))
+    (make-middleware method path handler))
 
-  (define (404-handler req)
+  (define (404-handler req params)
     '(404 () "Page Not Found"))
 
-  (define (500-handler req err)
+  (define (500-handler req params err)
     `(500 () ,(string-append
 	       "Something went wrong: "
 	       ;; TODO: should probably not leak this in production:
@@ -90,26 +87,54 @@ Initializes our web server.
 			 (http-status-description status)
 			 headers body)))
 
-  (define (match-path? request-url handler-url)
-    (let ((request-path (uri-path request-url))
-	  (handler-path (uri-path handler-url)))
-      ;; check if handler-path is a subset of request-path:
-      (subset? request-path handler-path)))
+  ;;; Checks if the two given parts match, and returns a list of the
+  ;;; matched parameter if it does (#f otherwise).
+  (define (match-path-part request-part handler-part)
+    (cond
+     ((equal? request-part handler-part) '())
+     ((eq? handler-part 'number-arg)
+      (let ((number (string->number request-part)))
+	(if (number? number)
+	    (list number)
+	    #f)))
+     ((eq? handler-part 'string-arg) (list request-part))
+     (else #f)))
 
-  ;;; Check if the given middleware matches the request
-  (define (match-middleware? request middleware)
+  ;;; Attempts to match the request URL with the handler path.
+  ;;; returns a list of matched parameters or #f if there's no match.
+  (define (match-path request-url full-handler-path)
+    (let loop ((request-path (cdr (uri-path request-url)))
+	       (handler-path full-handler-path)
+	       (params '()))
+      (cond
+       ;; /hi should be matched by /hi/there:
+       ((null? handler-path) params)
+       (else
+	(let ((matched (match-path-part
+			(car request-path)
+			(car handler-path))))
+	  (and matched
+	       (loop
+		(cdr request-path)
+		(cdr handler-path)
+		(append params matched))))))))
+
+  ;;; Check if the given middleware matches the request,
+  ;;; if it does it returns a list of matched params, otherwise #f.
+  (define (match-middleware request middleware)
     (let ((method (get-method middleware))
-	  (url (get-url middleware))
+	  (url (get-path middleware))
 	  (handler (get-handler middleware))
 	  (request-url (http-request-uri request))
 	  (request-method (http-request-method request)))
-      (let ((valid-method
+      (let ((matched-method
 	     (or (default-object? method)
 		 (equal? method request-method)))
-	    (valid-path
-	     (or (default-object? url)
-		 (match-path? request-url url))))
-	(and valid-method valid-path))))
+	    (matched-path
+	     (if (default-object? url)
+		 '()
+		 (match-path request-url url))))
+	(and matched-method matched-path))))
 
   ;;; Wraps the results from simple response handlers (i.e. ones that
   ;;; return strings) in a (200 '() body) list
@@ -118,11 +143,11 @@ Initializes our web server.
 	`(200 () ,result)
 	result))
 
-  (define (evaluate-handler handler request #!optional err)
+  (define (evaluate-handler handler request params #!optional err)
     (wrap-result
      (if (default-object? err)
-	 (handler request)
-	 (handler request err))))
+	 (handler request params)
+	 (handler request params err))))
 
   (define (write-response result port)
     (let ((response (create-response result)))
@@ -131,23 +156,26 @@ Initializes our web server.
 
   (define (handle-request handler-list request port #!optional err)
     (let loop ((rest handler-list) (should-respond #t))
-      (cond ((null? rest) 'done)
-	    ((match-middleware? request (car rest))
-	     (let* ((middleware (car rest))
-		    (handler (get-handler middleware)))
-	       (log "-> evaluating handler: ~A" handler)
-	       (let ((result (evaluate-handler handler request err)))
-		 ;; only write a response if we haven't
-		 ;; done so before:
-		 (if (and should-respond (list? result))
-		     (begin
-		       (write-response result port)
-		       (loop (cdr rest) #f))
-		     ;; go through the rest of the middleware, even if we've
-		     ;; sent out a response:
-		     (loop (cdr rest) should-respond)))))
-	    ;; this handler didn't match, so try the next one:
-	    (else (loop (cdr rest) should-respond)))))
+      (if (null? rest)
+	  'done
+	  (let ((params (match-middleware request (car rest))))
+	    (if (list? params)
+		(let* ((middleware (car rest))
+		       (handler (get-handler middleware)))
+		  (log "-> evaluating handler: ~A" handler)
+		  (let ((result (evaluate-handler handler request
+						  params err)))
+		    ;; only write a response if we haven't
+		    ;; done so before:
+		    (if (and should-respond (list? result))
+			(begin
+			  (write-response result port)
+			  (loop (cdr rest) #f))
+			;; go through the rest of the middleware, even if we've
+			;; sent out a response:
+			(loop (cdr rest) should-respond))))
+		;; this handler didn't match, so try the next one:
+		(loop (cdr rest) should-respond))))))
 
   ;;; Dispatch on public procedures:
   (define (dispatch op)
@@ -200,7 +228,7 @@ Initializes our web server.
 ;;; creates a middleware that serves static files
 ;;; at the folder at `path`
 (define (serve-static path)
-  (lambda (req)
+  (lambda (req params)
     (let* ((static-path (uri-path (string->uri path)))
 	   (full-request-path (uri-path (http-request-uri req)))
 	   ;; if we get a request for /static/file.txt and path is
@@ -255,45 +283,62 @@ Initializes our web server.
 ;;; Middleware, called for each request:
 (add-handler
  server
- (lambda (req)
+ (lambda (req params)
    (printf "-> request: ~A" req)))
 
 (get server
-     (lambda (req) '(200 () "Hello World!"))
-     "/hello-world")
+     (lambda (req params) '(200 () "Hello World!"))
+     '("hello-world"))
 
 (post server
-      (lambda (req) '(200 () "\o/"))
-      "/cats")
+      (lambda (req params) '(200 () "\o/"))
+      '("cats"))
 
 ;;; Error middleware example:
 (add-error-handler
  server
- (lambda (req err)
+ (lambda (req params err)
    (printf "-> error: ~A - in request: ~A" err req)))
 
 (post server
-      (lambda (req)
+      (lambda (req params)
 	;; trigger an error:
 	(unbound-procedure)
 	'(200 () "this shouldn't be reached!"))
-      "/trigger-error")
+      '("trigger-error"))
 
 ;;; Simple handler example:
 (get server
-     (lambda (req) "no more lists!")
-     "/simple")
+     (lambda (req params) "no more lists!")
+     '("simple"))
 
 ;;; Static example:
-(get server (serve-static "public") "/static")
+(get server (serve-static "public") '("static"))
 
 ;;; Redirect example:
 (get server
-     (lambda (req) (redirect "http://localhost:3000/hello-world"))
-     "/redirect")
+     (lambda (req params) (redirect "http://localhost:3000/hello-world"))
+     '("redirect"))
 
 (get server
-     (lambda (req) (redirect "http://localhost:3000/simple" 301))
-     "/permanent-redirect")
+     (lambda (req params) (redirect "http://localhost:3000/simple" 301))
+     '("permanent-redirect"))
+
+;;; Routing pattern examples:
+(get server
+     (lambda (req params)
+       `(200 ()
+	     ,(string-append
+	      "We're buying cat number "
+	      (number->string (car params)))))
+     '("cats" number-arg "buy"))
+
+(get server
+     (lambda (req params)
+       `(200 ()
+	     ,(string-append
+	      "We're buying the dog named "
+	      (car params))))
+     '("dogs" string-arg "buy"))
 
 (listen server 3000)

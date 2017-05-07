@@ -22,7 +22,7 @@ Then in your Scheme project you can do:
 
 ;;; Attach a handler:
 (get server
-     (lambda (req) '(200 () "Hello World!"))
+     (lambda (req params) '(200 () "Hello World!"))
      "/hello-world")
 
 ;;; And finally, start the server on port 3000:
@@ -40,7 +40,7 @@ building block for creating new middleware is `add-handler`:
 Example:
 ```scheme
 (add-handler server
-  (lambda (req)
+  (lambda (req params)
     (printf "-> request: ~A" req)))
 ```
 
@@ -58,7 +58,7 @@ it easier to define new handlers:
 Example:
 ```scheme
 (post server
-  (lambda (req) '(200 () "Let's add a cat!"))
+  (lambda (req params) '(200 () "Let's add a cat!"))
   "/cats")
 ```
 
@@ -71,7 +71,7 @@ Example:
 ```scheme
 (add-error-handler
   server
-  (lambda (req err)
+  (lambda (req params err)
     (printf "-> error: ~A - in request: ~A" err req)))
 ```
 
@@ -104,7 +104,7 @@ to the given location.
 Example:
 ```scheme
 (get server
-  (lambda (req)
+  (lambda (req params)
     (redirect "http://localhost:3000/hello-world"))
   "/redirect")
 ```
