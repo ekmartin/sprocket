@@ -41,9 +41,7 @@ Example:
 ```scheme
 (add-handler server
   (lambda (req)
-    (display "-> request: ")
-    (display req)
-    (newline)))
+    (printf "-> request: ~A" req)))
 ```
 
 Sprocket also provides a set of helper procedures that makes
@@ -74,11 +72,7 @@ Example:
 (add-error-handler
   server
   (lambda (req err)
-    (display "-> error: ")
-    (display err)
-    (display " - in request: ")
-    (display req)
-    (newline)))
+    (printf "-> error: ~A - in request: ~A" err req)))
 ```
 
 ### Utilities

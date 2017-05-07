@@ -25,7 +25,7 @@ Initializes our web server.
     (let ((socket (open-tcp-server-socket
 		   tcp-port
 		   (host-address-loopback))))
-      (display "Listening to port ") (display tcp-port) (newline)
+      (printf "Listening to port: ~A" tcp-port)
       (dynamic-wind
 	  (lambda () unspecific)
 	  (lambda ()
@@ -256,9 +256,7 @@ Initializes our web server.
 (add-handler
  server
  (lambda (req)
-   (display "-> request: ")
-   (display req)
-   (newline)))
+   (printf "-> request: ~A" req)))
 
 (get server
      (lambda (req) '(200 () "Hello World!"))
@@ -272,11 +270,7 @@ Initializes our web server.
 (add-error-handler
  server
  (lambda (req err)
-   (display "-> error: ")
-   (display err)
-   (display " - in request: ")
-   (display req)
-   (newline)))
+   (printf "-> error: ~A - in request: ~A" err req)))
 
 (post server
       (lambda (req)

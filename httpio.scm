@@ -41,10 +41,6 @@ requests?
 		   (or (%read-chunked-body headers port)
 		       (%read-delimited-body headers port)
 		       '())))
-	      (display "method ") (display method) (newline)
-	      (display "uri ") (display uri) (newline)
-	      (display "version ") (display version) (newline)
-	      (display "bt ") (display b.t) (newline)
 	      (if (null? b.t)
 		  (make-http-request method uri version headers "")
 		  (make-http-request method uri version
