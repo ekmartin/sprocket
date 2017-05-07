@@ -1,7 +1,7 @@
 (load "httpio.scm")
 (load "middleware.scm")
 (load "utils.scm")
-(load "json-parser.scm")
+(load "json-update.scm")
 
 #|
 Initializes our web server.
@@ -291,10 +291,10 @@ Initializes our web server.
  (lambda (req)
    (let ((body (json-parse (req)))
 	 ;;; gets procedure for updating req body
-	 (modifier (record-modifier "HTTP request" body)))
+	 (modifier (record-modifier "HTTP request" 'body)))
      ;;; update http request body
      (modifier req body))))
-	
+
 ;;; Simple handler example:
 (get server
      (lambda (req) "no more lists!")
