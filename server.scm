@@ -1,6 +1,7 @@
 (load "httpio.scm")
 (load "middleware.scm")
 (load "utils.scm")
+(load "json-parser.scm")
 
 #|
 Initializes our web server.
@@ -283,6 +284,14 @@ Initializes our web server.
 	(unbound-procedure)
 	'(200 () "this shouldn't be reached!"))
       "/trigger-error")
+
+;;; JSON parser example:
+(add-handler server
+   json-parser
+   (lambda (req)
+     (display "-> request: ")
+     (display req)
+     (newline)))
 
 ;;; Simple handler example:
 (get server
