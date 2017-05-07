@@ -189,8 +189,9 @@ Initializes our web server.
 
 ;;; create a redirect response, only supports
 ;;; absolute paths at the moment.
-(define (redirect path (status 302))
-  (let ((location (make-http-header 'location path)))
+(define (redirect path #!optional status)
+  (let ((redirect-status (if (default-object? status) 302 status))
+	(location (make-http-header 'location path)))
     (list
      redirect-status
      (list location)
