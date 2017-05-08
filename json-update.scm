@@ -3,7 +3,6 @@
 (load "json-encode")
 
 (define (json-parse req)
-  (display "HTTP req body:")(display (http-request-body req))(newline) 
   (json-decode (http-request-body req)))
 
 (define (json-body-parser)

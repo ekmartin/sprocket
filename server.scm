@@ -2,7 +2,7 @@
 (load "middleware.scm")
 (load "utils.scm")
 (load "json-update.scm")
-  
+
 #|
 Initializes our web server.
 |#
