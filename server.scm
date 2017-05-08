@@ -111,6 +111,7 @@ Initializes our web server.
       (cond
        ;; /hi should be matched by /hi/there:
        ((null? handler-path) params)
+       ((null? request-path) #f)
        (else
 	(let ((matched (match-path-part
 			(car request-path)
