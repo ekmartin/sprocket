@@ -2,14 +2,15 @@ import json
 import random
 from os import listdir
 
-
-IMAGES_DIR = "images"
+CAT_COUNT = 6
+IMAGES_DIR = "images/cats"
 with open('names.txt') as f:
     names = [n.strip() for n in f.readlines()]
 
 
 def get_images():
-    return [f for f in listdir(IMAGES_DIR) if not f.startswith('.')]
+    images = [f for f in listdir(IMAGES_DIR) if not f.startswith('.')]
+    return images[:CAT_COUNT]
 
 
 def generate_name():

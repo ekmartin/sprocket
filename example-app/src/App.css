@@ -1,0 +1,44 @@
+html {
+  background-color: #f5f7fa;
+}
+
+.section {
+  background-color: transparent;
+}
+
+@media screen and (min-width: 1192px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media screen and (min-width: 1384px) {
+  .container {
+    max-width: 960px;
+  }
+}
+
+.nav {
+  min-height: 70px;
+}
+
+.nav-item img {
+  max-height: 35px;
+  padding-right: 20px;
+}
+
+.cats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 40px;
+}
+
+.cat-content {
+  text-align: center;
+}
+
+.cat-age {
+  padding-left: 10px;
+  text-align: center;
+  color: grey
+}
