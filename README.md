@@ -90,7 +90,7 @@ Example:
           (string-append
            "First value: "
            (cdar (vector-ref body 0)))))
-      "/insert")
+      '("insert"))
 ```
 
 ### Utilities
