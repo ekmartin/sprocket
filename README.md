@@ -23,7 +23,7 @@ Then in your Scheme project you can do:
 ;;; Attach a handler:
 (get server
      (lambda (req params) '(200 () "Hello World!"))
-     "/hello-world")
+     '("hello-world"))
 
 ;;; And finally, start the server on port 3000:
 (listen server 3000)
@@ -86,7 +86,7 @@ helper for this:
 Example:
 
 ```scheme
-(get server (serve-static "public") "/static")
+(get server (serve-static "public") '("static"))
 ```
 
 This would for example cause Sprocket to respond to
@@ -106,5 +106,32 @@ Example:
 (get server
   (lambda (req params)
     (redirect "http://localhost:3000/hello-world"))
-  "/redirect")
+  '("redirect"))
+```
+
+#### Routing Parameters
+The path argument to `add-handler` is a list where each
+element matches a forward slash separated segment of a URL.
+This can either be a string, or one of the symbols `number-arg`
+and `string-arg`. The last two matches arbitrary values of their
+respective types, and passes a list of the matched parameters
+to the request handler.
+
+Examples:
+```scheme
+(get server
+     (lambda (req params)
+       `(200 ()
+             ,(string-append
+              "We're buying cat number "
+              (number->string (car params)))))
+     '("cats" number-arg "buy"))
+
+(get server
+     (lambda (req params)
+       `(200 ()
+             ,(string-append
+              "We're buying the dog named "
+              (car params))))
+     '("dogs" string-arg "buy"))
 ```
