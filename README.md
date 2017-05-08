@@ -80,6 +80,24 @@ Example:
     (display req)
     (newline)))
 ```
+Similar to express's bodyParser.json(), Sprocket allows you to
+take in json data and parse it into a Scheme data structure,
+making use of `json-decode` from https://github.com/joeltg/json.scm.
+You can make use of this functionality by calling:
+
+**add-handler** *server* *json-body-parser*
+
+Example:
+```scheme
+(post server
+      (lambda (req)
+        (let ((body (http-request-body req)))
+          (printf "body: ~A" body)
+          (string-append
+           "First value: "
+           (cdar (vector-ref body 0)))))
+      "/insert")
+```
 
 ### Utilities
 #### Static Files
@@ -113,4 +131,20 @@ Example:
   (lambda (req)
     (redirect "http://localhost:3000/hello-world"))
   "/redirect")
+```
+`json-body-parser` takes in the existing request body as
+json, converts it into a Scheme data structure, and
+updates the request body with the new body.
+
+See Below:
+```scheme
+(define (json-body-parser)
+  (lambda (req)
+   (let ((body (json-parse req))
+	 ;;; gets procedure for updating req body
+	 (modifier (record-modifier
+		    (record-type-descriptor req)
+		    'body)))
+     ;;; update http request body
+     (modifier req body))))
 ```
