@@ -216,6 +216,10 @@ Initializes our web server.
 (define (delete server handler #!optional path)
   (add-handler server handler path "DELETE"))
 
+(define (serve-file path)
+  (let ((content (read-file path)))
+    `(200 () ,content)))
+
 ;;; create a redirect response, only supports
 ;;; absolute paths at the moment.
 (define (redirect path #!optional status)
@@ -308,19 +312,6 @@ Initializes our web server.
 	'(200 () "this shouldn't be reached!"))
       '("trigger-error"))
 
-;;; JSON parser example:
-(add-handler server
-	     json-body-parser)
- 
-(post server
-      (lambda (req)
-        (let ((body (http-request-body req)))
-          (printf "body: ~A" body)
-          (string-append
-           "First value: "
-           (cdar (vector-ref body 0)))))
-      "/insert")
-
 ;;; Simple handler example:
 (get server
      (lambda (req params) "no more lists!")
@@ -354,5 +345,24 @@ Initializes our web server.
 	      "We're buying the dog named "
 	      (car params))))
      '("dogs" string-arg "buy"))
+
+;;; Serve file example:
+(get server
+     (lambda (req params)
+       (serve-file "public/file.txt"))
+     '("serve-file"))
+
+;;; JSON parser example:
+(add-handler server
+	     json-body-parser)
+
+(post server
+      (lambda (req)
+        (let ((body (http-request-body req)))
+          (printf "body: ~A" body)
+          (string-append
+           "First value: "
+           (cdar (vector-ref body 0)))))
+      "/insert")
 
 (listen server 3000)

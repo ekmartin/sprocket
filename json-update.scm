@@ -1,6 +1,7 @@
 (cd "json.scm/")
 (load "json-decode")
 (load "json-encode")
+(cd "..")
 
 (define (json-parse req)
   (json-decode (http-request-body req)))
