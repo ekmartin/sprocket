@@ -1,4 +1,5 @@
 (load "httpio.scm")
+(load "http-client.scm")
 (load "middleware.scm")
 (load "utils.scm")
 (load "json-update.scm")
