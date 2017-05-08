@@ -60,9 +60,8 @@
     |#
 
     (vector-ref
-     (cdar (vector-ref (json-decode body) 0)))
-    0))
-
+     (cdar (vector-ref (json-decode body) 0))
+     0)))
 
 (define (random-fact req params)
   (create-response (fetch-fact)))
@@ -80,8 +79,9 @@
 	   (update-cat
 	    id
 	    (lambda (cat)
-	      (let ((updated (del-assq 'favorite cat)))
-		(cons (cons 'favorite #t) updated))))))
+	      (let ((updated (del-assq 'favorite cat))
+		    (favorite (cdr (assq 'favorite cat))))
+		(cons (cons 'favorite (not favorite)) updated))))))
       (write-db updated-cats)
       (create-response
        (string-append
