@@ -159,15 +159,7 @@ Examples:
 json, converts it into a Scheme data structure, and
 updates the request body with the new body.
 
-See Below:
+Usage:
 ```scheme
-(define (json-body-parser)
-  (lambda (req)
-   (let ((body (json-parse req))
-	 ;;; gets procedure for updating req body
-	 (modifier (record-modifier
-		    (record-type-descriptor req)
-		    'body)))
-     ;;; update http request body
-     (modifier req body))))
+(add-handler server (json-body-parser))
 ```
