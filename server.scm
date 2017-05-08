@@ -1,6 +1,7 @@
 (load "httpio.scm")
 (load "middleware.scm")
 (load "utils.scm")
+(load "json-update.scm")
 
 #|
 Initializes our web server.
@@ -278,6 +279,19 @@ Initializes our web server.
 	(unbound-procedure)
 	'(200 () "this shouldn't be reached!"))
       "/trigger-error")
+
+;;; JSON parser example:
+(add-handler server
+	     json-body-parser)
+ 
+(post server
+      (lambda (req)
+        (let ((body (http-request-body req)))
+          (printf "body: ~A" body)
+          (string-append
+           "First value: "
+           (cdar (vector-ref body 0)))))
+      "/insert")
 
 ;;; Simple handler example:
 (get server
