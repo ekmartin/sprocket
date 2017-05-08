@@ -1,5 +1,5 @@
 # Sprocket
-Sprocket is a developer friendly mit-scheme web framework.
+Sprocket is a developer friendly web framework for MIT Scheme, built during [6.945: Adventures in Advanced Symbolic Programming](https://groups.csail.mit.edu/mac/users/gjs/6.945/).
 
 ## Installation
 Because Sprocket relies on `httpio`, it requires at least mit-scheme v9.
