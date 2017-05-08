@@ -2,7 +2,7 @@
 (load "middleware.scm")
 (load "utils.scm")
 (load "json-update.scm")
-
+  
 #|
 Initializes our web server.
 |#
@@ -286,14 +286,17 @@ Initializes our web server.
       "/trigger-error")
 
 ;;; JSON parser example:
-(add-handler
- server
- (lambda (req)
-   (let ((body (json-parse (req)))
-	 ;;; gets procedure for updating req body
-	 (modifier (record-modifier "HTTP request" 'body)))
-     ;;; update http request body
-     (modifier req body))))
+(add-handler server
+	     json-body-parser)
+ 
+(post server
+      (lambda (req)
+        (let ((body (http-request-body req)))
+          (printf "body: ~A" body)
+          (string-append
+           "First value: "
+           (cdar (vector-ref body 0)))))
+      "/insert")
 
 ;;; Simple handler example:
 (get server
