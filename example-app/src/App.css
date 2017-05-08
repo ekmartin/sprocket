@@ -33,12 +33,26 @@ html {
   grid-gap: 40px;
 }
 
-.cat-content {
-  text-align: center;
+.cat:hover {
+  cursor: pointer;
+}
+
+.cat-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title.cat-title {
+  margin-bottom: 0;
 }
 
 .cat-age {
   padding-left: 10px;
   text-align: center;
   color: grey
+}
+
+.cat-favorite {
+  font-size: 20px;
 }

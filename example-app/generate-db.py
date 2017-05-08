@@ -33,7 +33,7 @@ def generate_database():
     images = get_images()
     cats = []
     for i, image in enumerate(images):
-        cat = create_cat(i, image)
+        cat = create_cat(i + 1, image)
         cats.append(cat)
 
     return json.dumps(cats)

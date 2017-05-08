@@ -2,11 +2,15 @@
 (load "server.scm")
 (cd "example-app")
 
+(define HEADERS
+  ;; give everyone access to our API:
+  (list (make-http-header 'Access-Control-Allow-Origin "*")))
+
 (define DB_FILE "db.json")
 (define CAT_FACTS_URL
   (->uri "http://catfacts-api.appspot.com/api/facts"))
 
-(define INTERNAL-DEBUG-ERRORS #t)
+(define INTERNAL-DEBUG-ERRORS #f)
 (define server (create-server))
 (add-handler server (json-body-parser))
 
@@ -16,13 +20,18 @@
    0))
 
 (define (write-db cats)
-  (let ((port (open-output-file DB_FILE))
-	(dump (json-encode cats)))
-    (output-port/write-string port dump)
-    (flush-output port)))
+  (call-with-output-file
+   DB_FILE
+   (lambda (port)
+     (let ((dump (json-encode cats)))
+       (output-port/write-string port dump)
+       (flush-output port)))))
+
+(define (create-response output-string)
+  (list 200 HEADERS output-string))
 
 (define (list-cats req params)
-  (serve-file DB_FILE))
+  (create-response (read-file DB_FILE)))
 
 (define (update-cat id updater)
   (let ((db (read-db)))
@@ -56,13 +65,14 @@
 
 
 (define (random-fact req params)
-  (fetch-fact))
+  (create-response (fetch-fact)))
 
 (define (random-cat req params)
   (let ((db (read-db)))
-    (json-encode
-     (vector-ref db
-		 (random (vector-length db))))))
+    (let ((cat (json-encode
+		(vector-ref db
+			    (random (vector-length db))))))
+      (create-response cat))))
 
 (define (favorite-cat req params)
   (let ((id (car params)))
@@ -73,9 +83,10 @@
 	      (let ((updated (del-assq 'favorite cat)))
 		(cons (cons 'favorite #t) updated))))))
       (write-db updated-cats)
-      (string-append
-       "Updated cat "
-       (number->string id)))))
+      (create-response
+       (string-append
+	"Updated cat "
+	(number->string id))))))
 
 ;;; Routes
 (post server favorite-cat '("cats" number-arg "favorite"))
@@ -86,4 +97,4 @@
 
 (get server (serve-static "images") '("images"))
 
-(listen server 3000)
+(listen server 8080)

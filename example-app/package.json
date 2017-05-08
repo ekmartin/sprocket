@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "bulma": "^0.4.1",
+    "font-awesome": "^4.7.0",
     "react": "^15.5.4",
     "react-dom": "^15.5.4"
   },
