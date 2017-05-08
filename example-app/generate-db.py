@@ -2,7 +2,7 @@ import json
 import random
 from os import listdir
 
-CAT_COUNT = 6
+CAT_COUNT = 9
 IMAGES_DIR = "images/cats"
 with open('names.txt') as f:
     names = [n.strip() for n in f.readlines()]

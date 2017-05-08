@@ -9,7 +9,7 @@ const Header = () => (
           <div className="nav-left">
             <a href="/" className="nav-item is-brand">
               <img src={`${config.apiUrl}/images/logo.png`} alt="Good Cats" />
-              <h1 className="title">Good Cats</h1>
+              <h1 className="title">Good Cats ™</h1>
             </a>
           </div>
         </nav>

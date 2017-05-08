@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import Cat from './Cat';
+import Fact from './Fact';
 import config from './config';
 
 export default class Main extends Component {
@@ -41,6 +42,7 @@ export default class Main extends Component {
     return (
       <section className="section">
         <div className="container">
+          <Fact />
           <div className="cats">
             {this.state.cats.map(cat =>
               <Cat
