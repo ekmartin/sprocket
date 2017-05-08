@@ -59,7 +59,7 @@ Example:
 ```scheme
 (post server
   (lambda (req params) '(200 () "Let's add a cat!"))
-  "/cats")
+  '("cats"))
 ```
 
 In a similar vein, Sprocket also lets you define
