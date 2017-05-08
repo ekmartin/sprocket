@@ -22,8 +22,8 @@ Then in your Scheme project you can do:
 
 ;;; Attach a handler:
 (get server
-     (lambda (req) '(200 () "Hello World!"))
-     "/hello-world")
+     (lambda (req params) '(200 () "Hello World!"))
+     '("hello-world"))
 
 ;;; And finally, start the server on port 3000:
 (listen server 3000)
@@ -40,10 +40,8 @@ building block for creating new middleware is `add-handler`:
 Example:
 ```scheme
 (add-handler server
-  (lambda (req)
-    (display "-> request: ")
-    (display req)
-    (newline)))
+  (lambda (req params)
+    (printf "-> request: ~A" req)))
 ```
 
 Sprocket also provides a set of helper procedures that makes
@@ -60,8 +58,8 @@ it easier to define new handlers:
 Example:
 ```scheme
 (post server
-  (lambda (req) '(200 () "Let's add a cat!"))
-  "/cats")
+  (lambda (req params) '(200 () "Let's add a cat!"))
+  '("cats"))
 ```
 
 In a similar vein, Sprocket also lets you define
@@ -73,12 +71,8 @@ Example:
 ```scheme
 (add-error-handler
   server
-  (lambda (req err)
-    (display "-> error: ")
-    (display err)
-    (display " - in request: ")
-    (display req)
-    (newline)))
+  (lambda (req params err)
+    (printf "-> error: ~A - in request: ~A" err req)))
 ```
 Similar to express's bodyParser.json(), Sprocket allows you to
 take in json data and parse it into a Scheme data structure,
@@ -110,7 +104,7 @@ helper for this:
 Example:
 
 ```scheme
-(get server (serve-static "public") "/static")
+(get server (serve-static "public") '("static"))
 ```
 
 This would for example cause Sprocket to respond to
@@ -128,9 +122,36 @@ to the given location.
 Example:
 ```scheme
 (get server
-  (lambda (req)
+  (lambda (req params)
     (redirect "http://localhost:3000/hello-world"))
-  "/redirect")
+  '("redirect"))
+```
+
+#### Routing Parameters
+The path argument to `add-handler` is a list where each
+element matches a forward slash separated segment of a URL.
+This can either be a string, or one of the symbols `number-arg`
+and `string-arg`. The last two matches arbitrary values of their
+respective types, and passes a list of the matched parameters
+to the request handler.
+
+Examples:
+```scheme
+(get server
+     (lambda (req params)
+       `(200 ()
+             ,(string-append
+              "We're buying cat number "
+              (number->string (car params)))))
+     '("cats" number-arg "buy"))
+
+(get server
+     (lambda (req params)
+       `(200 ()
+             ,(string-append
+              "We're buying the dog named "
+              (car params))))
+     '("dogs" string-arg "buy"))
 ```
 `json-body-parser` takes in the existing request body as
 json, converts it into a Scheme data structure, and
