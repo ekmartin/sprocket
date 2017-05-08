@@ -60,4 +60,14 @@ html {
 .fact {
   text-align: center;
   padding-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.fact-text {
+  color: rgba(0, 0, 0, 0.75);
+  font-size: 1.4rem !important;
+  max-width: 80%;
 }

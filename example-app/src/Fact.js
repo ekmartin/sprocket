@@ -20,7 +20,7 @@ export default class Main extends Component {
         <h4 className="title is-3">
           Fact of the Day
         </h4>
-        <h4 className="title is-4">
+        <h4 className="fact-text title is-4">
           {fact}
         </h4>
       </div>
