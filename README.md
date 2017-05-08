@@ -153,6 +153,8 @@ Examples:
               (car params))))
      '("dogs" string-arg "buy"))
 ```
+
+#### JSON Parsing
 `json-body-parser` takes in the existing request body as
 json, converts it into a Scheme data structure, and
 updates the request body with the new body.
