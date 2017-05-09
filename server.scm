@@ -1,4 +1,5 @@
 (load "httpio.scm")
+(load "http-client.scm")
 (load "middleware.scm")
 (load "utils.scm")
 (load "json-update.scm")
@@ -110,6 +111,7 @@ Initializes our web server.
       (cond
        ;; /hi should be matched by /hi/there:
        ((null? handler-path) params)
+       ((null? request-path) #f)
        (else
 	(let ((matched (match-path-part
 			(car request-path)
@@ -272,11 +274,6 @@ Initializes our web server.
 
 ;;; reads the string content at the given file path:
 (define (read-file filename)
-  (let ((port (open-input-file filename)))
-    (let loop ((total '()))
-      (let ((current (read-char port)))
-	(if (eof-object? current)
-	    (begin
-	      (close-input-port port)
-	      (list->string (reverse total)))
-	    (loop (cons current total)))))))
+  (call-with-input-file filename
+    (lambda (port)
+      (read-string (char-set) port))))

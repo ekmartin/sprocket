@@ -70,8 +70,7 @@
      '("serve-file"))
 
 ;;; JSON parser example:
-(add-handler server
-	     json-body-parser)
+(add-handler server (json-body-parser))
 
 (post server
       (lambda (req)

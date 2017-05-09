@@ -7,7 +7,7 @@
   (json-decode (http-request-body req)))
 
 (define (json-body-parser)
-  (lambda (req)
+  (lambda (req params)
    (let ((body (json-parse req))
 	 ;;; gets procedure for updating req body
 	 (modifier (record-modifier
@@ -15,6 +15,3 @@
 		    'body)))
      ;;; update http request body
      (modifier req body))))
-
-(define (json-serialize req)
-  (json-encode (http-request-body req)))
