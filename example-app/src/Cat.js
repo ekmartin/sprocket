@@ -18,7 +18,7 @@ const Cat = ({ cat, toggleFavorite }) => {
           <p className="cat-title title is-4">
             {cat.name}
             <span className="cat-age">
-              {`(${cat.age})`}
+              {`(${cat.age} years)`}
             </span>
           </p>
           <i className={`fa cat-favorite ${heart}`}></i>

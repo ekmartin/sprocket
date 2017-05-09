@@ -19,7 +19,7 @@ def generate_name():
 
 def create_cat(cat_id, image):
     name = generate_name()
-    age = random.randint(0, 25)
+    age = random.randint(0, 10)
     return {
         'id': cat_id,
         'name': name,
