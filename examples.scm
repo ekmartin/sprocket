@@ -73,12 +73,11 @@
 (add-handler server (json-body-parser))
 
 (post server
-      (lambda (req)
+      (lambda (req params)
         (let ((body (http-request-body req)))
-          (printf "body: ~A" body)
           (string-append
            "First value: "
            (cdar (vector-ref body 0)))))
-      "/insert")
+      '("insert"))
 
 (listen server 3000)
